@@ -19,9 +19,9 @@ type Server struct {
 	wg  *sync.WaitGroup
 }
 
-func NewServer(a *Authenticator, p Proxy) *Server {
+func NewServer(a *Authenticator, p Proxy) (*Server, error) {
 	if p == nil {
-		p = &MinProxy{}
+		return nil, fmt.Errorf("no proxy provided")
 	}
 
 	if a == nil {
@@ -33,11 +33,7 @@ func NewServer(a *Authenticator, p Proxy) *Server {
 		cnt: new(atomic.Int64),
 		p:   p,
 		wg:  &sync.WaitGroup{},
-	}
-}
-
-func DefaultServer() *Server {
-	return NewServer(nil, nil)
+	}, nil
 }
 
 // Wrap wraps an existing net.Listener to accept user connections.
@@ -75,7 +71,10 @@ func (s *Server) serverloop() {
 		s.wg.Add(1)
 		go func(wg *sync.WaitGroup, conn net.Conn) {
 			defer wg.Done()
-			s.proxyConn(conn)
+			err = s.proxyConn(conn)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "proxyConn: %v", err)
+			}
 		}(s.wg, conn)
 	}
 }
