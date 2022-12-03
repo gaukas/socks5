@@ -17,8 +17,7 @@ type AuthenticationMethod interface {
 
 // NoAuthenticationRequired is a AuthenticationMethod that does not require any authentication.
 // It only responds to the client with the selected authentication method and returns nil.
-type NoAuthenticationRequired struct {
-}
+type NoAuthenticationRequired struct{}
 
 // Authenticate implements the AuthenticationMethod interface.
 func (*NoAuthenticationRequired) Authenticate(conn net.Conn) error {
