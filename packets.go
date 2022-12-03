@@ -73,7 +73,7 @@ func (p *PacketAuthRequest) Read(r io.Reader) error {
 	return nil
 }
 
-func (p *PacketAuthRequest) Write(_ io.Writer) error {
+func (*PacketAuthRequest) Write(_ io.Writer) error {
 	return fmt.Errorf("not implemented for client-sent packet")
 }
 
@@ -93,7 +93,7 @@ type PacketAuthSelect struct {
 	METHOD byte
 }
 
-func (p *PacketAuthSelect) Read(_ io.Reader) error {
+func (*PacketAuthSelect) Read(_ io.Reader) error {
 	return fmt.Errorf("not implemented for server-sent packet")
 }
 
@@ -192,7 +192,7 @@ func (p *PacketUserPassAuth) Read(r io.Reader) error {
 	return nil
 }
 
-func (p *PacketUserPassAuth) Write(_ io.Writer) error {
+func (*PacketUserPassAuth) Write(_ io.Writer) error {
 	return fmt.Errorf("not implemented for client-sent packet")
 }
 
@@ -212,7 +212,7 @@ type PacketUserPassAuthStatus struct {
 	STATUS byte
 }
 
-func (p *PacketUserPassAuthStatus) Read(_ io.Reader) error {
+func (*PacketUserPassAuthStatus) Read(_ io.Reader) error {
 	return fmt.Errorf("not implemented for server-sent packet")
 }
 
@@ -351,7 +351,7 @@ func (p *PacketRequest) Read(r io.Reader) error {
 	return nil
 }
 
-func (p *PacketRequest) Write(_ io.Writer) error {
+func (*PacketRequest) Write(_ io.Writer) error {
 	return fmt.Errorf("not implemented for client-sent packet")
 }
 
@@ -391,7 +391,7 @@ const (
 	REPLY_ATYP_IPV6       byte = 0x04
 )
 
-func (p *PacketReply) Read(_ io.Reader) error {
+func (*PacketReply) Read(_ io.Reader) error {
 	return fmt.Errorf("not implemented for server-sent packet")
 }
 
