@@ -73,7 +73,7 @@ func (s *Server) serverloop() {
 			defer wg.Done()
 			err = s.proxyConn(conn)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "proxyConn: %v", err)
+				fmt.Fprintf(os.Stderr, "proxyConn: %v\n", err)
 			}
 		}(s.wg, conn)
 	}
@@ -99,9 +99,14 @@ func (s *Server) proxyConn(clientConn net.Conn) error {
 	// Handle request
 	switch req.CMD {
 	case REQUEST_CMD_CONNECT:
-		serverConn, bndAddr, err := s.p.Connect(
-			NewAddr("tcp", fmt.Sprintf("%s:%d", req.DSTADDR, req.DSTPORT)),
-		)
+		connAddr := NewAddr("tcp", fmt.Sprintf("%s:%d", req.DSTADDR, req.DSTPORT))
+		if req.ATYP == REQUEST_ATYP_IPV6 {
+			connAddr.network = "tcp6"
+		} else if req.ATYP == REQUEST_ATYP_IPV4 {
+			connAddr.network = "tcp4"
+		}
+
+		serverConn, bndAddr, err := s.p.Connect(connAddr)
 		if err != nil {
 			replyError(err, clientConn)
 			return fmt.Errorf("failed to connect to %s:%d, (*socks5.Proxy).Connect: %v", req.DSTADDR, req.DSTPORT, err)
@@ -131,9 +136,14 @@ func (s *Server) proxyConn(clientConn net.Conn) error {
 		fullPipe(clientConn, serverConn)
 		s.cnt.Add(-1)
 	case REQUEST_CMD_BIND:
-		chanServerConn, chanBndAddr, err := s.p.Bind(
-			NewAddr("tcp", fmt.Sprintf("%s:%d", req.DSTADDR, req.DSTPORT)),
-		)
+		bindAddr := NewAddr("tcp", fmt.Sprintf("%s:%d", req.DSTADDR, req.DSTPORT))
+		if req.ATYP == REQUEST_ATYP_IPV6 {
+			bindAddr.network = "tcp6"
+		} else if req.ATYP == REQUEST_ATYP_IPV4 {
+			bindAddr.network = "tcp4"
+		}
+
+		chanServerConn, chanBndAddr, err := s.p.Bind(bindAddr)
 		if err != nil {
 			replyError(err, clientConn)
 			return fmt.Errorf("failed to bind to %s:%d, (*socks5.Proxy).Bind: %v", req.DSTADDR, req.DSTPORT, err)
