@@ -3,8 +3,16 @@ package socks5
 import "net"
 
 func ParseAddr(addr net.Addr) (ATYP byte, ADDR string, PORT uint16, err error) {
+	// Split port from address
+	bndAddrStr := addr.String()
+	bndAddrStr, bndPortStr, err := net.SplitHostPort(bndAddrStr)
+	if err != nil {
+		return 0, "", 0, ErrAddressTypeNotSupported
+	}
+	ADDR = bndAddrStr
+
 	// Check if the address is an IP address
-	ip := net.ParseIP(addr.String())
+	ip := net.ParseIP(bndAddrStr)
 	if ip != nil {
 		// check if it's an IPv4 or IPv6 address
 		if ip.To4() != nil {
@@ -15,14 +23,6 @@ func ParseAddr(addr net.Addr) (ATYP byte, ADDR string, PORT uint16, err error) {
 	} else {
 		ATYP = REPLY_ATYP_DOMAINNAME
 	}
-
-	// Split port from address
-	bndAddrStr := addr.String()
-	bndAddrStr, bndPortStr, err := net.SplitHostPort(bndAddrStr)
-	if err != nil {
-		return 0, "", 0, ErrAddressTypeNotSupported
-	}
-	ADDR = bndAddrStr
 
 	// Convert port to uint16
 	bndPortInt, err := net.LookupPort("tcp", bndPortStr)
