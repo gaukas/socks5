@@ -19,8 +19,7 @@ type Logger interface {
 }
 
 // noLogger is a no-op logger
-type noLogger struct {
-}
+type noLogger struct{}
 
 func (l *noLogger) Debug(_ ...any) {
 }
