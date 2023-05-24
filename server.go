@@ -99,7 +99,7 @@ func (s *Server) serverloop() {
 }
 
 func (s *Server) handleConn(clientConn net.Conn) error {
-	defer clientConn.Close()
+	defer clientConn.Close() // skipcq: GO-S2307
 
 	// Authenticate
 	err := s.auth.Auth(clientConn)
@@ -140,7 +140,7 @@ func (s *Server) handleCmdConnect(req *PacketRequest, clientConn net.Conn) error
 		return fmt.Errorf("failed to connect to %s:%d, (*socks5.Proxy).Connect: %w", req.DSTADDR, req.DSTPORT, err)
 	}
 
-	defer serverConn.Close()
+	defer serverConn.Close() // skipcq: GO-S2307
 
 	// Respond with bndAddr
 	err = replyAddr(serverConn.LocalAddr(), clientConn)
@@ -160,7 +160,7 @@ func (s *Server) handleCmdBind(req *PacketRequest, clientConn net.Conn) error {
 		replyError(err, clientConn)
 		return fmt.Errorf("failed to bind to %s:%d, (*socks5.Proxy).Bind: %v", req.DSTADDR, req.DSTPORT, err)
 	}
-	defer bindListener.Close() // MUST close the listener if the function returns with an error.
+	defer bindListener.Close() // MUST close the listener if the function returns with an error. // skipcq: GO-S2307
 
 	// Read first bndAddr, which is the address the proxy server is listening on
 	bndAddr := bindListener.Addr()
@@ -324,13 +324,11 @@ func (s *Server) handleCmdUDPAssociate(req *PacketRequest, clientConn net.Conn) 
 		if err != nil {
 			return fmt.Errorf("failed to request packet, (*socks5.UDPAssociate).Request: %v", err)
 		}
-	} else {
-		if isSameAddr(clientUDPAddr, p.ClientAddr) {
-			// Send the request to the proxy
-			err = ur.request(p)
-			if err != nil {
-				return fmt.Errorf("failed to request packet, (*socks5.UDPAssociate).Request: %v", err)
-			}
+	} else if isSameAddr(clientUDPAddr, p.ClientAddr) {
+		// Send the request to the proxy
+		err = ur.request(p)
+		if err != nil {
+			return fmt.Errorf("failed to request packet, (*socks5.UDPAssociate).Request: %v", err)
 		}
 	}
 
@@ -490,7 +488,7 @@ func (ur *udpReassembler) request(req *PacketUDPRequest) error {
 	}
 }
 
-func (ur *udpReassembler) udpReassembleTimeout() time.Duration {
+func (ur *udpReassembler) udpReassembleTimeout() time.Duration { // skipcq: RVV-B0013
 	return 5 * time.Second // TODO: allow override
 }
 

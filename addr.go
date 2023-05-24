@@ -42,7 +42,7 @@ func parseAddr(addr net.Addr) (ATYP byte, ADDR string, PORT uint16, err error) {
 }
 
 func buildTCPAddr(ATYP byte, ADDR string, PORT uint16) net.Addr {
-	connAddr := newAddr("tcp", fmt.Sprintf("%s:%d", ADDR, PORT))
+	connAddr := newAddr("udp", net.JoinHostPort(ADDR, fmt.Sprintf("%d", PORT)))
 	if ATYP == REQUEST_ATYP_IPV6 {
 		connAddr.network = "tcp6"
 	} else if ATYP == REQUEST_ATYP_IPV4 {
@@ -52,7 +52,7 @@ func buildTCPAddr(ATYP byte, ADDR string, PORT uint16) net.Addr {
 }
 
 func buildUDPAddr(ATYP byte, ADDR string, PORT uint16) net.Addr {
-	connAddr := newAddr("udp", fmt.Sprintf("%s:%d", ADDR, PORT))
+	connAddr := newAddr("udp", net.JoinHostPort(ADDR, fmt.Sprintf("%d", PORT)))
 	if ATYP == REQUEST_ATYP_IPV6 {
 		connAddr.network = "udp6"
 	} else if ATYP == REQUEST_ATYP_IPV4 {

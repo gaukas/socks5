@@ -19,37 +19,36 @@ type Logger interface {
 }
 
 // noLogger is a no-op logger
-type noLogger struct {
+type noLogger struct{}
+
+func (*noLogger) Debug(_ ...any) {
 }
 
-func (l *noLogger) Debug(_ ...any) {
+func (*noLogger) Debugf(_ string, _ ...any) {
 }
 
-func (l *noLogger) Debugf(_ string, _ ...any) {
+func (*noLogger) Info(_ ...any) {
 }
 
-func (l *noLogger) Info(_ ...any) {
+func (*noLogger) Infof(_ string, _ ...any) {
 }
 
-func (l *noLogger) Infof(_ string, _ ...any) {
+func (*noLogger) Warn(_ ...any) {
 }
 
-func (l *noLogger) Warn(_ ...any) {
+func (*noLogger) Warnf(_ string, _ ...any) {
 }
 
-func (l *noLogger) Warnf(_ string, _ ...any) {
+func (*noLogger) Error(_ ...any) {
 }
 
-func (l *noLogger) Error(_ ...any) {
+func (*noLogger) Errorf(_ string, _ ...any) {
 }
 
-func (l *noLogger) Errorf(_ string, _ ...any) {
+func (*noLogger) Fatal(_ ...any) {
 }
 
-func (l *noLogger) Fatal(_ ...any) {
-}
-
-func (l *noLogger) Fatalf(_ string, _ ...any) {
+func (*noLogger) Fatalf(_ string, _ ...any) {
 }
 
 // type guard
