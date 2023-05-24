@@ -2,6 +2,7 @@ package socks5
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"sync"
@@ -33,23 +34,63 @@ func errorToRep(err error) (REP byte) {
 	return
 }
 
-func fullPipe(a io.ReadWriteCloser, b io.ReadWriteCloser) {
+func fullPipe(a io.ReadWriteCloser, b io.ReadWriteCloser) error {
 	wg := &sync.WaitGroup{}
-	wg.Add(1)
-	go func(wg *sync.WaitGroup, a io.ReadWriteCloser, b io.ReadWriteCloser) {
-		defer wg.Done()
-		io.Copy(a, b)
-		a.Close()
-	}(wg, a, b)
+	chanErr := make(chan error, 2)
+	defer close(chanErr)
 
-	io.Copy(b, a)
-	b.Close()
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		_, err := io.Copy(a, b)
+		if err != nil {
+			chanErr <- err
+		}
+		a.Close() // close dst (src errored or closed already)
+	}()
+	go func() {
+		defer wg.Done()
+		_, err := io.Copy(b, a)
+		if err != nil {
+			chanErr <- err
+		}
+		b.Close() // close src (dst errored or closed already)
+	}()
+
 	wg.Wait()
+
+	select {
+	case err := <-chanErr:
+		return err
+	default:
+		return nil
+	}
 }
 
-func replyError(err error, conn net.Conn) {
+func replyError(err error, conn net.Conn) error {
 	var rep *PacketReply = &PacketReply{
 		REP: errorToRep(err),
 	}
-	rep.Write(conn)
+	return rep.Write(conn)
+}
+
+func replyAddr(addr net.Addr, conn net.Conn) error {
+	ATYP, BNDADDR, BNDPORT, err := parseAddr(addr)
+	if err != nil {
+		replyError(err, conn)
+		return fmt.Errorf("failed to parse bndAddr %s, ParseAddr: %w", addr, err)
+	}
+
+	var rep *PacketReply = &PacketReply{
+		REP:     REPLY_REP_SUCCEEDED,
+		ATYP:    ATYP,
+		BNDADDR: BNDADDR,
+		BNDPORT: BNDPORT,
+	}
+	return rep.Write(conn)
+}
+
+// note: it SHOULD return a uint64 instead, see https://github.com/golang/go/issues/48762
+func getMTU() int {
+	return 1460 // TODO: replace this value to be OS/ENV specific
 }

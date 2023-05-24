@@ -1,8 +1,15 @@
 package socks5
 
-import "net"
+import (
+	"fmt"
+	"net"
+)
 
-func ParseAddr(addr net.Addr) (ATYP byte, ADDR string, PORT uint16, err error) {
+func parseAddr(addr net.Addr) (ATYP byte, ADDR string, PORT uint16, err error) {
+	if addr == nil {
+		return 0, "", 0, nil
+	}
+
 	// Split port from address
 	bndAddrStr := addr.String()
 	bndAddrStr, bndPortStr, err := net.SplitHostPort(bndAddrStr)
@@ -34,32 +41,51 @@ func ParseAddr(addr net.Addr) (ATYP byte, ADDR string, PORT uint16, err error) {
 	return
 }
 
-// Addr implements a net.Addr for SOCKS5 addresses.
-type Addr struct {
+func buildTCPAddr(ATYP byte, ADDR string, PORT uint16) net.Addr {
+	connAddr := newAddr("tcp", fmt.Sprintf("%s:%d", ADDR, PORT))
+	if ATYP == REQUEST_ATYP_IPV6 {
+		connAddr.network = "tcp6"
+	} else if ATYP == REQUEST_ATYP_IPV4 {
+		connAddr.network = "tcp4"
+	}
+	return connAddr
+}
+
+func buildUDPAddr(ATYP byte, ADDR string, PORT uint16) net.Addr {
+	connAddr := newAddr("udp", fmt.Sprintf("%s:%d", ADDR, PORT))
+	if ATYP == REQUEST_ATYP_IPV6 {
+		connAddr.network = "udp6"
+	} else if ATYP == REQUEST_ATYP_IPV4 {
+		connAddr.network = "udp4"
+	}
+	return connAddr
+}
+
+type addr struct {
 	network string
 	addr    string
 }
 
-func NewAddr(network, addr string) *Addr {
-	return &Addr{
+func newAddr(network, adr string) *addr {
+	return &addr{
 		network: network,
-		addr:    addr,
+		addr:    adr,
 	}
 }
 
-func (a *Addr) Network() string {
+func (a *addr) Network() string {
 	return a.network
 }
 
-func (a *Addr) String() string {
+func (a *addr) String() string {
 	return a.addr
 }
 
-func (a *Addr) StringEqual(b net.Addr) bool {
+func (a *addr) StringEqual(b net.Addr) bool {
 	return a.String() == b.String()
 }
 
-func (a *Addr) HostMatching(b net.Addr) bool {
+func (a *addr) HostMatching(b net.Addr) bool {
 	// split the host and port from hostOrAddr
 	host, _, err := net.SplitHostPort(b.String())
 	if err != nil {
@@ -75,6 +101,16 @@ func (a *Addr) HostMatching(b net.Addr) bool {
 	return host == addrHost
 }
 
-func FromNetAddr(addr net.Addr) *Addr {
-	return NewAddr(addr.Network(), addr.String())
+// func fromNetAddr(adr net.Addr) *addr {
+// 	return newAddr(adr.Network(), adr.String())
+// }
+
+func isSameAddr(a, b net.Addr) bool {
+	if a == nil || b == nil {
+		if a == nil && b == nil {
+			return true
+		}
+		return false
+	}
+	return a.Network() == b.Network() && a.String() == b.String()
 }

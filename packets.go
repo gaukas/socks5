@@ -544,3 +544,14 @@ func (p *PacketUDPRequest) Write(pc net.PacketConn) error {
 	_, err = pc.WriteTo(buf.Bytes(), p.ClientAddr)
 	return err
 }
+
+// type guard
+var (
+	_ Packet = (*PacketAuthRequest)(nil)
+	_ Packet = (*PacketAuthSelect)(nil)
+	_ Packet = (*PacketUserPassAuth)(nil)
+	_ Packet = (*PacketUserPassAuthStatus)(nil)
+	_ Packet = (*PacketRequest)(nil)
+	_ Packet = (*PacketReply)(nil)
+	// _ Packet = (*PacketUDPRequest)(nil) // *PacketUDPRequest does not implement Packet interface!
+)

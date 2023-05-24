@@ -6,6 +6,7 @@ import (
 )
 
 type Authenticator struct {
+	Forced         bool // default: false, if set to true, NO_AUTHENTICATION_REQUIRED is not accepted
 	UserPass       map[string]string
 	PrivateMethods map[byte]AuthenticationMethod
 }
@@ -33,6 +34,9 @@ func (a *Authenticator) Auth(client net.Conn) error {
 		for _, method := range authReq.METHODS {
 			switch method {
 			case NO_AUTHENTICATION_REQUIRED:
+				if a.Forced {
+					continue // not allowed, skip
+				}
 				nar := NoAuthenticationRequired{}
 				return nar.Authenticate(client)
 			case GSSAPI:
