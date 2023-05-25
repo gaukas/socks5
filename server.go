@@ -21,6 +21,8 @@ type Server struct {
 	wg  *sync.WaitGroup
 }
 
+// NewServer creates a new Server.
+// Wrap or Listen must be called explicitly before the server can accept connections.
 func NewServer(auth *Authenticator, proxy Proxy, logger Logger) (*Server, error) {
 	if proxy == nil {
 		return nil, errors.New("no proxy provided")

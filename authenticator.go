@@ -5,6 +5,8 @@ import (
 	"net"
 )
 
+// Authenticator is used to authenticate the client. It supports Username/Password method
+// (and No Auth method) by default and allows custom authentication methods via PrivateMethods.
 type Authenticator struct {
 	Forced         bool // default: false, if set to true, NO_AUTHENTICATION_REQUIRED is not accepted
 	UserPass       map[string]string

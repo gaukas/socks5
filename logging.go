@@ -21,33 +21,43 @@ type Logger interface {
 // noLogger is a no-op logger
 type noLogger struct{}
 
+// Debug interfaces Logger
 func (*noLogger) Debug(_ ...any) {
 }
 
+// Debugf interfaces Logger
 func (*noLogger) Debugf(_ string, _ ...any) {
 }
 
+// Info interfaces Logger
 func (*noLogger) Info(_ ...any) {
 }
 
+// Infof interfaces Logger
 func (*noLogger) Infof(_ string, _ ...any) {
 }
 
+// Warn interfaces Logger
 func (*noLogger) Warn(_ ...any) {
 }
 
+// Warnf interfaces Logger
 func (*noLogger) Warnf(_ string, _ ...any) {
 }
 
+// Error interfaces Logger
 func (*noLogger) Error(_ ...any) {
 }
 
+// Errorf interfaces Logger
 func (*noLogger) Errorf(_ string, _ ...any) {
 }
 
+// Fatal interfaces Logger
 func (*noLogger) Fatal(_ ...any) {
 }
 
+// Fatalf interfaces Logger
 func (*noLogger) Fatalf(_ string, _ ...any) {
 }
 

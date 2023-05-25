@@ -40,6 +40,7 @@ type PacketAuthRequest struct {
 	METHODS  []byte // length: NMETHODS
 }
 
+// Read interfaces Packet
 func (p *PacketAuthRequest) Read(r io.Reader) error {
 	// Read VER and NMETHODS
 	hdr := make([]byte, 2)
@@ -73,6 +74,7 @@ func (p *PacketAuthRequest) Read(r io.Reader) error {
 	return nil
 }
 
+// Write interfaces Packet
 func (*PacketAuthRequest) Write(_ io.Writer) error {
 	return fmt.Errorf("not implemented for client-sent packet")
 }
@@ -93,10 +95,12 @@ type PacketAuthSelect struct {
 	METHOD byte
 }
 
+// Read interfaces Packet
 func (*PacketAuthSelect) Read(_ io.Reader) error {
 	return fmt.Errorf("not implemented for server-sent packet")
 }
 
+// Write interfaces Packet
 func (p *PacketAuthSelect) Write(w io.Writer) error {
 	n, err := w.Write([]byte{p.VER, p.METHOD})
 	if err != nil {
@@ -131,6 +135,7 @@ const (
 	USERPASS_AUTH_VERSION byte = 0x01
 )
 
+// Read interfaces Packet
 func (p *PacketUserPassAuth) Read(r io.Reader) error {
 	// Read VER, ULEN
 	verulen := make([]byte, 2)
@@ -192,6 +197,7 @@ func (p *PacketUserPassAuth) Read(r io.Reader) error {
 	return nil
 }
 
+// Write interfaces Packet
 func (*PacketUserPassAuth) Write(_ io.Writer) error {
 	return fmt.Errorf("not implemented for client-sent packet")
 }
@@ -212,10 +218,12 @@ type PacketUserPassAuthStatus struct {
 	STATUS byte
 }
 
+// Read interfaces Packet
 func (*PacketUserPassAuthStatus) Read(_ io.Reader) error {
 	return fmt.Errorf("not implemented for server-sent packet")
 }
 
+// Write interfaces Packet
 func (p *PacketUserPassAuthStatus) Write(w io.Writer) error {
 	n, err := w.Write([]byte{p.VER, p.STATUS})
 	if err != nil {
@@ -257,6 +265,7 @@ const (
 	REQUEST_ATYP_IPV6       byte = 0x04
 )
 
+// Read interfaces Packet
 func (p *PacketRequest) Read(r io.Reader) error {
 	// Read VER, CMD, RSV, ATYP
 	vercmdrsvatyp := make([]byte, 4)
@@ -351,6 +360,7 @@ func (p *PacketRequest) Read(r io.Reader) error {
 	return nil
 }
 
+// Write interfaces Packet
 func (*PacketRequest) Write(_ io.Writer) error {
 	return fmt.Errorf("not implemented for client-sent packet")
 }
@@ -391,10 +401,12 @@ const (
 	REPLY_ATYP_IPV6       byte = 0x04
 )
 
+// Read interfaces Packet
 func (*PacketReply) Read(_ io.Reader) error {
 	return fmt.Errorf("not implemented for server-sent packet")
 }
 
+// Write interfaces Packet
 func (p *PacketReply) Write(w io.Writer) error {
 	if p.VER == 0x00 {
 		p.VER = PROTOCOL_VERSION // by default, use the implemented version
@@ -472,6 +484,7 @@ const (
 	UDP_RSV_EXPECTED uint16 = 0x0000
 )
 
+// Read reads next UDP request from the given packet connection.
 func (p *PacketUDPRequest) Read(pc net.PacketConn) error {
 	var buf []byte = make([]byte, 65535)
 	var n int
@@ -512,6 +525,7 @@ func (p *PacketUDPRequest) Read(pc net.PacketConn) error {
 	return nil
 }
 
+// Write writes the UDP request to the given packet connection.
 func (p *PacketUDPRequest) Write(pc net.PacketConn) error {
 	var bndaddr []byte
 	var err error

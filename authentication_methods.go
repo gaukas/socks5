@@ -5,6 +5,7 @@ import (
 	"net"
 )
 
+// AuthenticationMethod is an interface that represents a custom SOCKS5 authentication method.
 type AuthenticationMethod interface {
 	// Authenticate will respond to the net.Conn with the selected authentication method.
 	// Then, the AuthenticationMethod should proceed and finish the authentication process.
@@ -25,6 +26,7 @@ func (*NoAuthenticationRequired) Authenticate(conn net.Conn) error {
 	return authSelect.Write(conn)
 }
 
+// UsernamePassword is a AuthenticationMethod that requires username/password authentication.
 type UsernamePassword struct {
 	UserPass map[string]string
 }
@@ -34,6 +36,7 @@ const (
 	USERPASS_AUTH_FAILURE byte = 0x01
 )
 
+// Authenticate implements the AuthenticationMethod interface.
 func (up *UsernamePassword) Authenticate(conn net.Conn) error {
 	var authSelect *PacketAuthSelect = &PacketAuthSelect{PROTOCOL_VERSION, USERNAME_PASSWORD}
 	err := authSelect.Write(conn)

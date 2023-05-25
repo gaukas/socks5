@@ -6,8 +6,7 @@ import (
 	"net"
 )
 
-// Proxy is the interface for an underlying transport which delivers proxy requests and responses
-// between the client and the proxy worker server.
+// Proxy is the interface for an underlying implementation of a general-purpose proxy.
 type Proxy interface {
 	// Connect creates an outgoing (TCP) connection to the destination (dst) from the proxy server.
 	//

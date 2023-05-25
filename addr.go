@@ -73,18 +73,22 @@ func newAddr(network, adr string) *addr {
 	}
 }
 
+// Network interfaces net.Addr
 func (a *addr) Network() string {
 	return a.network
 }
 
+// String interfaces net.Addr
 func (a *addr) String() string {
 	return a.addr
 }
 
+// StringEqual compares the string representation an addr with another net.Addr
 func (a *addr) StringEqual(b net.Addr) bool {
 	return a.String() == b.String()
 }
 
+// HostMatching compares the host part of an addr with another net.Addr
 func (a *addr) HostMatching(b net.Addr) bool {
 	// split the host and port from hostOrAddr
 	host, _, err := net.SplitHostPort(b.String())

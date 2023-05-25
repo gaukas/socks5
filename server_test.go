@@ -12,7 +12,6 @@ import (
 // - SOCKS5 Proxy Server binds to 127.0.0.2:8080
 // - Underlying Proxy Server Implementation works on 127.0.1.2
 // - Dummy Remote Destination binds to 127.0.0.3:8080
-
 func TestServer(t *testing.T) {
 	t.Run("HandleConnIPv4", func(t *testing.T) {
 		t.Run("CmdConnectIPv4", testHandleCmdConnectIPv4)
