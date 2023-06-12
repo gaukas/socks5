@@ -41,14 +41,14 @@ func (a *Authenticator) Auth(client net.Conn) error {
 				}
 				nar := NoAuthenticationRequired{}
 				return nar.Authenticate(client)
-			case GSSAPI:
-				continue // not implemented, skip
 			case USERNAME_PASSWORD:
 				if a.UserPass != nil {
 					up := UsernamePassword{UserPass: a.UserPass}
 					return up.Authenticate(client)
 				}
 				continue // not configured, skip
+			case GSSAPI:
+				fallthrough // not implemented by default, support could be provided by PrivateMethods
 			default:
 				// check private methods
 				if a.PrivateMethods != nil {

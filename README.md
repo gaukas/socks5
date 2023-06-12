@@ -10,8 +10,8 @@ This package implements the SOCKS5 protocol as described in [RFC1928](https://to
 
 - Authentication Methods
     - [x] NO AUTHENTICATION REQUIRED
-    - [ ] GSSAPI
     - [x] USERNAME/PASSWORD (untested)
+    - [ ] GSSAPI (custom support possible via `PrivateMethods` in `Authenticator`)
 - Commands
     - [x] CONNECT
     - [x] BIND
