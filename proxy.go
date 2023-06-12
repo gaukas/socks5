@@ -8,7 +8,8 @@ import (
 
 // Proxy is the interface for an underlying implementation of a general-purpose proxy.
 type Proxy interface {
-	// Connect creates an outgoing (TCP) connection to the destination (dst) from the proxy server.
+	// Connect creates an outgoing TCP connection to the destination specified as dst from the
+	// proxy server.
 	//
 	// The returned net.Conn MUST be the connection to the destination, i.e. any data written to
 	// it will be send to the remote destination. Its LocalAddr() method SHOULD return the address
@@ -21,24 +22,27 @@ type Proxy interface {
 	//
 	// The returned net.Listener MUST return the address the proxy server is listening on when
 	// its Addr() method is called. Its Accept() method MUST block until the FIRST incoming
-	// connection is received, and return the net.Conn representing the connection, whose
-	// RemoteAddr() MUST return the address of the source of the connection and LocalAddr()
-	// same as the Addr() of the returned net.Listener.
+	// connection is received, and return a net.Conn representing the incoming connection, whose
+	// RemoteAddr() call MUST return the address of the source and LocalAddr() call MUST return
+	// the address the listener is bound to, same as the one returned by Addr() of the net.Listener.
 	//
 	// It is up to the proxy implementation to decide how to handle subsequent incoming connections
 	// on the same address and port, as well as how to handle multiple calls to Bind() with the same
-	// dst address.
+	// dst address specified.
 	Bind(dst net.Addr) (net.Listener, error)
 
 	// UDPAssociate creates a UDP socket on the proxy server.
 	//
-	// UDP Datagrams (after reassembly if needed) will be sent to the returned net.PacketConn
-	// using the `WriteTo()` method where the destination address as specified by the UDP
-	// Request Header.
-	//
-	// `ReadFrom()` on the returned net.PacketConn will return UDP datagrams received by the proxy
-	// server from a remote source with the remote source's address.
+	// Invoking the WriteTo() method on the returned net.PacketConn sends a UDP datagram to the
+	// remote address specified in the function call. And UDP datagrams received from the remote
+	// address should be accessible by invoking ReadFrom() on the returned net.PacketConn.
 	UDPAssociate() (net.PacketConn, error)
+
+	// Close closes the proxy server and cleans up any resources associated with it if possible.
+	//
+	// Calling Close on a proxy server does not necessarily close any connections created by it.
+	// However, it SHOULD prevent any new connections from being created. If
+	Close() error
 }
 
 var (
@@ -118,6 +122,10 @@ func (p *localProxy) UDPAssociate() (net.PacketConn, error) {
 		return nil, err
 	}
 	return &wrappedUDPConn{rawconn}, nil
+}
+
+func (*localProxy) Close() error {
+	return nil
 }
 
 type wrappedUDPConn struct {
