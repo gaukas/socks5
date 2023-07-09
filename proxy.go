@@ -78,7 +78,7 @@ type localProxy struct {
 
 // NewLocalProxy creates a new localProxy with the given serverIP.
 // If the serverIP is unknown, an empty string should be passed in.
-func NewLocalProxy(serverIP string) *localProxy {
+func NewLocalProxy(serverIP string) *localProxy { // skipcq: RVV-B0011
 	return &localProxy{
 		serverIP: serverIP,
 	}
@@ -111,7 +111,7 @@ func (p *localProxy) Connect(ctx context.Context, dst net.Addr) (conn net.Conn, 
 }
 
 // Bind implements Proxy.Bind
-func (p *localProxy) Bind(ctx context.Context, dst net.Addr) (net.Listener, error) {
+func (*localProxy) Bind(ctx context.Context, dst net.Addr) (net.Listener, error) {
 	if dst.Network() != "tcp" && dst.Network() != "tcp4" && dst.Network() != "tcp6" {
 		return nil, ErrNetworkUnreachable
 	}
