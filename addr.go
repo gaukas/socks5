@@ -116,5 +116,24 @@ func isSameAddr(a, b net.Addr) bool {
 		}
 		return false
 	}
+
+	// if any is unspecified, return true
+	aHost, aPort, err := net.SplitHostPort(a.String())
+	if err != nil {
+		return false
+	}
+	bHost, bPort, err := net.SplitHostPort(b.String())
+	if err != nil {
+		return false
+	}
+	aIP := net.ParseIP(aHost)
+	bIP := net.ParseIP(bHost)
+	if aIP.IsUnspecified() || bIP.IsUnspecified() {
+		if aPort == bPort || aPort == "0" || bPort == "0" {
+			return true
+		}
+		return false
+	}
+
 	return a.Network() == b.Network() && a.String() == b.String()
 }

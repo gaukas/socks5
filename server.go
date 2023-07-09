@@ -1,53 +1,65 @@
 package socks5
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
+
+	"golang.org/x/exp/slog"
 )
 
-// Server is an automatic SOCKS5 server which wraps an existing net.Listener.
+// Server acts like an automatic SOCKS5 server which wraps an existing net.Listener.
 type Server struct {
 	auth   *Authenticator
-	proxy  Proxy
-	logger Logger
+	logger *slog.Logger
+
+	proxy          Proxy
+	connectTimeout time.Duration
+	bindTimeout    time.Duration
+	udpTimeout     time.Duration
 
 	lis net.Listener
 	wg  *sync.WaitGroup
 }
 
 // NewServer creates a new Server.
-// Wrap or Listen must be called explicitly before the server can accept connections.
-func NewServer(auth *Authenticator, proxy Proxy, logger Logger) (*Server, error) {
-	if proxy == nil {
-		return nil, errors.New("no proxy provided")
+//
+// Wrap or Listen must be called explicitly before the server can accept connections
+// from SOCKS5 clients.
+func NewServer(config Config) (*Server, error) {
+	var server *Server = &Server{
+		auth:           config.Auth,
+		proxy:          config.Proxy,
+		connectTimeout: config.ConnectTimeout,
+		bindTimeout:    config.BindTimeout,
+		udpTimeout:     config.UDPTimeout,
+		wg:             new(sync.WaitGroup),
 	}
 
-	if auth == nil {
-		auth = &Authenticator{}
+	if server.auth == nil {
+		server.auth = &Authenticator{}
 	}
 
-	s := &Server{
-		auth:   auth,
-		proxy:  proxy,
-		logger: logger,
-
-		wg: new(sync.WaitGroup),
+	if config.LoggingHandler == nil {
+		server.logger = slog.Default()
+	} else {
+		server.logger = slog.New(config.LoggingHandler)
 	}
 
-	if s.logger == nil {
-		s.logger = &noLogger{}
+	if server.proxy == nil {
+		server.proxy = NewLocalProxy("0.0.0.0") // using local proxy without knowing IP
 	}
 
-	return s, nil
+	return server, nil
 }
 
-// Wrap wraps an existing net.Listener to accept user connections.
+// Wrap wraps an existing net.Listener to accept connections from SOCKS5 clients.
 func (s *Server) Wrap(l net.Listener) error {
 	if s.auth == nil || s.wg == nil {
 		return fmt.Errorf("server not initialized properly")
@@ -65,7 +77,8 @@ func (s *Server) Wrap(l net.Listener) error {
 	return nil
 }
 
-// Listen creates a net.Listener and calls Wrap on it.
+// Listen creates a net.Listener and calls Wrap on it for incoming connections
+// from SOCKS5 clients.
 func (s *Server) Listen(network, address string) error {
 	l, err := net.Listen(network, address)
 	if err != nil {
@@ -74,8 +87,8 @@ func (s *Server) Listen(network, address string) error {
 	return s.Wrap(l)
 }
 
-// Close closes the Server from accepting new connections.
-// However, it does not close any established connections.
+// Close stops the Server from accepting new incoming connections from SOCKS5 clients.
+// This function does not guarantee the termination of any established connection.
 func (s *Server) Close() error {
 	if s.lis == nil {
 		return fmt.Errorf("server not wrapped")
@@ -83,6 +96,7 @@ func (s *Server) Close() error {
 	return s.lis.Close()
 }
 
+// serverloop is the main loop of the SOCKS5 server implementation.
 func (s *Server) serverloop() {
 	for {
 		conn, err := s.lis.Accept()
@@ -94,7 +108,7 @@ func (s *Server) serverloop() {
 			defer wg.Done()
 			err = s.handleConn(conn)
 			if err != nil {
-				s.logger.Errorf("(*Server).handleConn: %w\n", err)
+				s.logger.Error(fmt.Sprintf("(*Server).handleConn: %v", err))
 			}
 		}(s.wg, conn)
 	}
@@ -136,12 +150,16 @@ func (s *Server) handleConn(clientConn net.Conn) error {
 func (s *Server) handleCmdConnect(req *PacketRequest, clientConn net.Conn) error {
 	connAddr := buildTCPAddr(req.ATYP, req.DSTADDR, req.DSTPORT)
 
-	serverConn, err := s.proxy.Connect(connAddr)
+	connectCtx, cancel := context.WithCancel(context.Background())
+	if s.connectTimeout > 0 {
+		connectCtx, cancel = context.WithTimeout(connectCtx, s.connectTimeout)
+	}
+	serverConn, err := s.proxy.Connect(connectCtx, connAddr)
+	cancel()
 	if err != nil {
 		replyError(err, clientConn)
 		return fmt.Errorf("failed to connect to %s:%d, (*socks5.Proxy).Connect: %w", req.DSTADDR, req.DSTPORT, err)
 	}
-
 	defer serverConn.Close() // skipcq: GO-S2307
 
 	// Respond with bndAddr
@@ -157,12 +175,17 @@ func (s *Server) handleCmdConnect(req *PacketRequest, clientConn net.Conn) error
 func (s *Server) handleCmdBind(req *PacketRequest, clientConn net.Conn) error {
 	dstAddr := buildTCPAddr(req.ATYP, req.DSTADDR, req.DSTPORT)
 
-	bindListener, err := s.proxy.Bind(dstAddr)
+	bindCtx, cancel := context.WithCancel(context.Background())
+	if s.bindTimeout > 0 {
+		bindCtx, cancel = context.WithTimeout(bindCtx, s.bindTimeout)
+	}
+	bindListener, err := s.proxy.Bind(bindCtx, dstAddr)
+	cancel()
 	if err != nil {
 		replyError(err, clientConn)
 		return fmt.Errorf("failed to bind to %s:%d, (*socks5.Proxy).Bind: %v", req.DSTADDR, req.DSTPORT, err)
 	}
-	defer bindListener.Close() // MUST close the listener if the function returns with an error. // skipcq: GO-S2307
+	defer bindListener.Close() // skipcq: GO-S2307
 
 	// Read first bndAddr, which is the address the proxy server is listening on
 	bndAddr := bindListener.Addr()
@@ -188,7 +211,7 @@ func (s *Server) handleCmdBind(req *PacketRequest, clientConn net.Conn) error {
 
 	// Verify the LocalAddr of the serverConn
 	if !isSameAddr(bndAddr, serverConn.LocalAddr()) {
-		err = fmt.Errorf("serverConn.LocalAddr() != bndAddr, %w", ErrConnNotAllowed)
+		err = fmt.Errorf("serverConn.LocalAddr(): %s != bndAddr: %s, %w", serverConn.LocalAddr().String(), bndAddr.String(), ErrConnNotAllowed)
 		replyError(err, clientConn)
 		return err
 	}
@@ -213,7 +236,11 @@ func (s *Server) handleCmdBind(req *PacketRequest, clientConn net.Conn) error {
 func (s *Server) handleCmdUDPAssociate(req *PacketRequest, clientConn net.Conn) error {
 	// Create a UDP socket on the same host as the SOCKS5 (TCP) server
 	serverAddr := s.lis.Addr()
-	_, serverHost, _, err := parseAddr(serverAddr)
+	serverType, serverHost, _, err := parseAddr(serverAddr)
+	if serverType == REPLY_ATYP_IPV6 {
+		serverHost = fmt.Sprintf("[%s]", serverHost)
+	}
+
 	if err != nil {
 		replyError(err, clientConn)
 		return fmt.Errorf("failed to parse serverAddr, socks5.ParseAddr: %w", err)
@@ -231,7 +258,12 @@ func (s *Server) handleCmdUDPAssociate(req *PacketRequest, clientConn net.Conn) 
 	defer clientUDPConn.Close()
 
 	// Create a UDP Associate
-	proxyConn, err := s.proxy.UDPAssociate()
+	udpCtx, cancel := context.WithCancel(context.Background())
+	if s.udpTimeout > 0 {
+		udpCtx, cancel = context.WithTimeout(udpCtx, s.udpTimeout)
+	}
+	proxyConn, err := s.proxy.UDPAssociate(udpCtx)
+	cancel()
 	if err != nil {
 		replyError(err, clientConn)
 		return fmt.Errorf("failed to create UDP Associate, (*socks5.Proxy).UDPAssociate: %w", err)
@@ -260,12 +292,14 @@ func (s *Server) handleCmdUDPAssociate(req *PacketRequest, clientConn net.Conn) 
 		}
 	}
 
+	closed := &atomic.Bool{}
 	// The TCP Connection used to send the UDP Associate Command should
 	// not be used to carry more datagrams. However it is expected to
 	// be kept-alive. If it is closed, the UDP Association should be closed.
 	go func() {
 		var drain io.Writer = io.Discard
 		io.Copy(drain, clientConn) // until error or EOF
+		closed.Store(true)
 		clientUDPConn.Close()
 		proxyConn.Close()
 	}()
@@ -276,6 +310,7 @@ func (s *Server) handleCmdUDPAssociate(req *PacketRequest, clientConn net.Conn) 
 		for {
 			pkts, err := fragmentNextDatagram(proxyConn)
 			if err != nil {
+				closed.Store(true)
 				proxyConn.Close()
 				clientUDPConn.Close()
 				clientConn.Close()
@@ -290,6 +325,7 @@ func (s *Server) handleCmdUDPAssociate(req *PacketRequest, clientConn net.Conn) 
 					err = errors.New("no clientUDPAddr specified")
 				}
 				if err != nil {
+					closed.Store(true)
 					proxyConn.Close()
 					clientUDPConn.Close()
 					clientConn.Close()
@@ -313,7 +349,10 @@ func (s *Server) handleCmdUDPAssociate(req *PacketRequest, clientConn net.Conn) 
 	var p *PacketUDPRequest = &PacketUDPRequest{}
 	err = p.Read(clientUDPConn)
 	if err != nil {
-		return fmt.Errorf("failed to read packet, (*socks5.PacketUDPRequest).Read: %w", err)
+		if closed.Load() {
+			return nil // closed by other goroutine
+		}
+		return fmt.Errorf("failed to read first packet, (*socks5.PacketUDPRequest).Read: %w", err)
 	}
 
 	if clientUDPAddr == nil {
@@ -336,15 +375,15 @@ func (s *Server) handleCmdUDPAssociate(req *PacketRequest, clientConn net.Conn) 
 
 	// For all subsequent UDP Requests received from the client, we send them to the
 	// reassembler for further processing.
-	for {
+	for !closed.Load() {
 		err = p.Read(clientUDPConn)
 		if err != nil {
-			if err == io.EOF && p.DATA == nil {
-				return nil // EOF is expected when clientUDPConn is closed
+			if (errors.Is(err, io.EOF) && p.DATA == nil) || closed.Load() {
+				return nil // EOF/ErrClosed is expected when clientUDPConn is closed
 			} else if p.ClientAddr == nil && !os.IsTimeout(err) {
-				return fmt.Errorf("failed to read packet, (*socks5.PacketUDPRequest).Read: %v", err)
+				return fmt.Errorf("failed to read subsequent packet, (*socks5.PacketUDPRequest).Read: %w", err)
 			}
-			s.logger.Debugf("Ignoring error in reading incoming UDP Request: %v", err)
+			s.logger.Debug("Ignoring error in reading incoming UDP Request: %v", err)
 			continue // otherwise, likely bad packet content or timeout, ignore
 		}
 		if isSameAddr(clientUDPAddr, p.ClientAddr) {
@@ -354,13 +393,15 @@ func (s *Server) handleCmdUDPAssociate(req *PacketRequest, clientConn net.Conn) 
 				return fmt.Errorf("failed to request packet, (*socks5.UDPAssociate).Request: %v", err)
 			}
 		} else {
-			s.logger.Errorf("Received UDP Datagram from unexpected source, ignoring")
+			s.logger.Error("Received UDP Datagram from unexpected source, ignoring")
 		}
 	}
+
+	return nil
 }
 
 type udpReassembler struct {
-	logger    Logger
+	logger    *slog.Logger
 	proxyConn net.PacketConn
 
 	// reassembly
@@ -376,7 +417,7 @@ type udpReassembler struct {
 // reassembleUDP creates a new udpReassembler and returns it.
 // It takes a net.PacketConn as the underlying connection where all the UDP packets
 // after reassembly will be WriteTo().
-func reassembleUDP(logger Logger, proxyConn net.PacketConn) (*udpReassembler, error) {
+func reassembleUDP(logger *slog.Logger, proxyConn net.PacketConn) (*udpReassembler, error) {
 	if proxyConn == nil {
 		return nil, errors.New("no proxyConn provided")
 	}
@@ -470,9 +511,9 @@ func (ur *udpReassembler) request(req *PacketUDPRequest) error {
 	}
 
 	if req.FRAG == 0x00 { // no reassembly needed
-		log.Println("no reassembly needed")
+		ur.logger.Debug("no reassembly needed")
 		ur.cancelReassembly() // cancel ongoing reassembly if any
-		log.Println("Cancelled ongoing reassembly if any")
+		ur.logger.Debug("Cancelled ongoing reassembly if any")
 		// overwrite addr associated with the DST info carried by the packet
 		dstNetwork := "udp"
 		if req.ATYP == REQUEST_ATYP_IPV4 {
