@@ -5,13 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"os"
 	"sync"
 	"sync/atomic"
 	"time"
-
-	"log/slog"
 )
 
 // Server acts like an automatic SOCKS5 server which wraps an existing net.Listener.
