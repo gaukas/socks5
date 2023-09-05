@@ -3,7 +3,7 @@ package socks5
 import (
 	"time"
 
-	"golang.org/x/exp/slog"
+	"log/slog"
 )
 
 // Config details the configuration of the SOCKS5 server.

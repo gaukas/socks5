@@ -11,7 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"golang.org/x/exp/slog"
+	"log/slog"
 )
 
 // Server acts like an automatic SOCKS5 server which wraps an existing net.Listener.
