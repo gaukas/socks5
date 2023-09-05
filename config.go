@@ -1,9 +1,8 @@
 package socks5
 
 import (
-	"time"
-
 	"log/slog"
+	"time"
 )
 
 // Config details the configuration of the SOCKS5 server.
